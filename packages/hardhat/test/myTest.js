@@ -93,29 +93,13 @@ describe("Staker Dapp", function () {
       ).to.be.revertedWith("Deadline is already reached");
       // Complete the stake process
     });
-
-    it("Stake reverted if external contract is completed", async () => {
-      const amount = ethers.utils.parseEther("1");
-      // Complete the stake process
-      const txStake = await stakerContract.connect(addr1).stake({
-        value: amount,
-      });
-      await txStake.wait();
-
-      // Execute it
-      const txExecute = await stakerContract.connect(addr1).execute();
-      await txExecute.wait();
-
-      await expect(
-        stakerContract.connect(addr1).stake({
-          value: amount,
-        })
-      ).to.be.revertedWith("staking process already completed");
-    });
   });
 
   describe("Test execute() method", () => {
     it("execute reverted because stake amount not reached threshold", async () => {
+      // Let deadline be reached
+      await increaseWorldTimeInSeconds(180, true);
+
       await expect(stakerContract.connect(addr1).execute()).to.be.revertedWith(
         "Threshold not reached"
       );
@@ -126,6 +110,10 @@ describe("Staker Dapp", function () {
       await stakerContract.connect(addr1).stake({
         value: amount,
       });
+
+      // Let deadline be reached
+      await increaseWorldTimeInSeconds(180, true);
+
       await stakerContract.connect(addr1).execute();
 
       await expect(stakerContract.connect(addr1).execute()).to.be.revertedWith(
@@ -133,12 +121,9 @@ describe("Staker Dapp", function () {
       );
     });
 
-    it("execute reverted because deadline is reached", async () => {
-      // Let deadline be reached
-      await increaseWorldTimeInSeconds(180, true);
-
+    it("execute reverted because deadline is not reached", async () => {
       await expect(stakerContract.connect(addr1).execute()).to.be.revertedWith(
-        "Deadline is already reached"
+        "Deadline is not reached yet"
       );
     });
 
@@ -147,6 +132,10 @@ describe("Staker Dapp", function () {
       await stakerContract.connect(addr1).stake({
         value: amount,
       });
+
+      // Let deadline be reached
+      await increaseWorldTimeInSeconds(180, true);
+
       await stakerContract.connect(addr1).execute();
 
       // it seems to be a waffle bug see https://github.com/EthWorks/Waffle/issues/469
@@ -170,9 +159,9 @@ describe("Staker Dapp", function () {
 
   describe("Test withdraw() method", () => {
     it("withdraw reverted if deadline is not reached", async () => {
-      await expect(stakerContract.connect(addr1).withdraw()).to.be.revertedWith(
-        "Deadline is not reached yet"
-      );
+      await expect(
+        stakerContract.connect(addr1).withdraw(addr1.address)
+      ).to.be.revertedWith("Deadline is not reached yet");
     });
 
     it("withdraw reverted if external contract is completed", async () => {
@@ -183,23 +172,26 @@ describe("Staker Dapp", function () {
       });
       await txStake.wait();
 
+      // Let deadline be reached
+      await increaseWorldTimeInSeconds(180, true);
+
       const txExecute = await stakerContract.connect(addr1).execute();
       await txExecute.wait();
 
       // Pass the deadline
       await increaseWorldTimeInSeconds(180, true);
 
-      await expect(stakerContract.connect(addr1).withdraw()).to.be.revertedWith(
-        "staking process already completed"
-      );
+      await expect(
+        stakerContract.connect(addr1).withdraw(addr1.address)
+      ).to.be.revertedWith("staking process already completed");
     });
 
     it("withdraw reverted if address has no balance", async () => {
       await increaseWorldTimeInSeconds(180, true);
 
-      await expect(stakerContract.connect(addr1).withdraw()).to.be.revertedWith(
-        "You don't have balance to withdraw"
-      );
+      await expect(
+        stakerContract.connect(addr1).withdraw(addr1.address)
+      ).to.be.revertedWith("You don't have balance to withdraw");
     });
 
     it("withdraw success!", async () => {
@@ -213,7 +205,9 @@ describe("Staker Dapp", function () {
       // Let time pass
       await increaseWorldTimeInSeconds(180, true);
 
-      const txWithdraw = await stakerContract.connect(addr1).withdraw();
+      const txWithdraw = await stakerContract
+        .connect(addr1)
+        .withdraw(addr1.address);
       await txWithdraw.wait();
 
       const contractBalance = await ethers.provider.getBalance(

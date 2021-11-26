@@ -48,21 +48,21 @@ contract Staker {
   }
 
   // if the `threshold` was not met, allow everyone to call a `withdraw()` function
-  function withdraw() public deadlineReached stakeNotCompleted {
-    require(balances[msg.sender] > 0, "You don't have balance to withdraw");
+  function withdraw(address payable withdrawer) public deadlineReached stakeNotCompleted {
+    require(balances[withdrawer] > 0, "You don't have balance to withdraw");
 
-    uint256 amount = balances[msg.sender];
+    uint256 amount = balances[withdrawer];
     balances[msg.sender] = 0;
 
-    (bool sent, ) = msg.sender.call{value: amount}("");
+    (bool sent, ) = withdrawer.call{value: amount}("");
     require(sent, "Failed to send user balance back to the user");
 
-    emit Withdraw(msg.sender, amount);
+    emit Withdraw(withdrawer, amount);
   }
 
   // After some `deadline` allow anyone to call an `execute()` function
   //  It should either call `exampleExternalContract.complete{value: address(this).balance}()` to send all the value
-  function execute() public stakeNotCompleted deadlineRemaining {
+  function execute() public stakeNotCompleted deadlineReached {
     require(address(this).balance >= threshold, "Threshold not reached");
 
     exampleExternalContract.complete{value: address(this).balance}();
